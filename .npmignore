@@ -1,0 +1,46 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Tests
+tests/
+*.test.ts
+*.spec.ts
+coverage/
+.nyc_output/
+
+# Development files
+.vscode/
+.idea/
+.git/
+.github/
+.env
+.env.*
+!.env.example
+
+# Documentation (development only)
+STATUS.md
+IMPLEMENTATION_SUMMARY.md
+.claude/
+
+# Build artifacts (temporary)
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+node_modules/
+tsconfig.tsbuildinfo
+vitest.config.ts
+vitest.integration.config.ts
+eslint.config.js
+.eslintrc*
+
+# Only include what's needed in the package
+# See package.json "files" field for what IS included

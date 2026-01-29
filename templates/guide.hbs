@@ -1,0 +1,81 @@
+---
+title: "{{title}}"
+type: guide
+credibility: {{metadata.credibilityScore}}
+---
+
+# {{title}}
+
+## 📘 Guide Overview
+
+{{summary}}
+
+**Credibility**: {{credibilityPercentage}}% • **Sources**: {{metadata.sourcesCount}}
+
+---
+
+## Table of Contents
+
+{{#each sections}}
+{{@index}}. [{{title}}](#{{title}})
+{{/each}}
+
+---
+
+{{#each sections}}
+## {{@index}}. {{title}}
+
+{{content}}
+
+{{#if subsections}}
+{{#each subsections}}
+### {{@../index}}.{{@index}} {{title}}
+
+{{content}}
+
+{{/each}}
+{{/if}}
+
+---
+
+{{/each}}
+
+## ℹ️ About This Guide
+
+This guide was automatically generated through:
+- **{{metadata.verificationRounds}}** rounds of cross-verification
+- **{{metadata.sourcesCount}}** sources analyzed
+- **{{verificationSummary.verifiedClaims}}** verified claims
+- **{{metadata.conflictsResolved}}** conflicts resolved
+
+**Confidence Level**: {{credibilityLevel}} ({{credibilityPercentage}}%)
+
+---
+
+## 📊 Source Quality
+
+{{sourceBreakdown verificationSummary.sourceBreakdown}}
+
+---
+
+{{#if references}}
+## 📚 Further Reading
+
+{{#each references}}
+{{@index}}. {{formatted}}
+{{/each}}
+{{/if}}
+
+---
+
+## 🏷️ Tags
+
+{{#each metadata.tags}}
+#{{this}}{{#unless @last}} {{/unless}}
+{{/each}}
+
+---
+
+*Guide generated: {{formatDate metadata.createdAt}}*
+*Research Automation MCP Server v{{metadata.version}}*
+*Credibility Score: {{credibilityPercentage}}%*

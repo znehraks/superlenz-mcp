@@ -1,0 +1,49 @@
+{
+  "defaultProvider": "markdown",
+  "fallbackStrategy": {
+    "enabled": true,
+    "mode": "priority",
+    "retryAttempts": 3,
+    "retryDelay": 1000
+  },
+  "providers": {
+    "markdown": {
+      "enabled": true,
+      "priority": 1,
+      "basePath": "${OUTPUT_PATH:-./output}",
+      "imageDirectory": "images",
+      "frontmatterFormat": "yaml",
+      "includeTableOfContents": true
+    },
+    "notion": {
+      "enabled": true,
+      "priority": 2,
+      "accessToken": "${NOTION_ACCESS_TOKEN}",
+      "databaseId": "${NOTION_DATABASE_ID}",
+      "useMcpServer": true,
+      "mcpServerName": "notion"
+    },
+    "confluence": {
+      "enabled": false,
+      "priority": 3,
+      "baseUrl": "${CONFLUENCE_BASE_URL}",
+      "email": "${CONFLUENCE_EMAIL}",
+      "apiToken": "${CONFLUENCE_API_TOKEN}",
+      "spaceKey": "${CONFLUENCE_SPACE_KEY}"
+    },
+    "obsidian": {
+      "enabled": false,
+      "priority": 2.5,
+      "vaultPath": "${OBSIDIAN_VAULT_PATH}",
+      "useWikiLinks": true,
+      "enableTags": true,
+      "dailyNoteFormat": "YYYY-MM-DD"
+    },
+    "json": {
+      "enabled": true,
+      "priority": 4,
+      "basePath": "${OUTPUT_PATH:-./output}",
+      "prettyPrint": true
+    }
+  }
+}

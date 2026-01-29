@@ -1,0 +1,91 @@
+{
+  "name": "superlenz",
+  "version": "0.1.0",
+  "description": "SuperLenz — High-credibility research automation MCP server with multi-source cross-verification",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "superlenz": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "mcp",
+    "research",
+    "automation",
+    "verification",
+    "cross-checking"
+  ],
+  "author": "SuperLenz Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/znehraks/superlenz.git"
+  },
+  "bugs": {
+    "url": "https://github.com/znehraks/superlenz/issues"
+  },
+  "homepage": "https://github.com/znehraks/superlenz#readme",
+  "files": [
+    "dist/",
+    "config/",
+    "templates/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.24.1",
+    "@anthropic-ai/sdk": "^0.33.1",
+    "axios": "^1.7.9",
+    "axios-retry": "^4.5.0",
+    "crawlee": "^3.13.1",
+    "playwright": "^1.49.1",
+    "cheerio": "^1.0.0",
+    "@mozilla/readability": "^0.5.0",
+    "turndown": "^7.2.0",
+    "pdf-parse": "^1.1.1",
+    "handlebars": "^4.7.8",
+    "marked": "^15.0.4",
+    "@notionhq/client": "^2.2.15",
+    "ioredis": "^5.4.2",
+    "node-cache": "^5.1.2",
+    "winston": "^3.17.0",
+    "bottleneck": "^2.19.5",
+    "p-queue": "^8.0.1",
+    "nanoid": "^5.0.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/turndown": "^5.0.5",
+    "@types/pdf-parse": "^1.1.4",
+    "@typescript-eslint/eslint-plugin": "^8.18.2",
+    "@typescript-eslint/parser": "^8.18.2",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

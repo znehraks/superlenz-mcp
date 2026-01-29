@@ -1,0 +1,82 @@
+---
+title: "{{title}}"
+type: comparison
+credibility: {{metadata.credibilityScore}}
+---
+
+# {{title}}
+
+> {{summary}}
+
+---
+
+## Comparison Overview
+
+**Credibility Score**: {{credibilityPercentage}}% ({{credibilityLevel}})
+**Sources**: {{metadata.sourcesCount}} | **Verification Rounds**: {{metadata.verificationRounds}}
+
+---
+
+{{#each sections}}
+{{#ifEquals type "comparison"}}
+## {{title}}
+
+{{content}}
+
+{{#if subsections}}
+{{#each subsections}}
+### {{title}}
+
+{{content}}
+
+{{/each}}
+{{/if}}
+{{/ifEquals}}
+{{/each}}
+
+---
+
+## Methodology
+
+{{#each sections}}
+{{#ifEquals type "methodology"}}
+{{content}}
+{{/ifEquals}}
+{{/each}}
+
+---
+
+## Verification Details
+
+- **Total Claims Verified**: {{verificationSummary.totalClaims}}
+- **High Confidence Claims**: {{verificationSummary.verifiedClaims}}
+- **Average Confidence**: {{percent verificationSummary.averageConfidence}}
+- **Conflicts Resolved**: {{metadata.conflictsResolved}}
+
+**Source Distribution**:
+{{sourceBreakdown verificationSummary.sourceBreakdown}}
+
+---
+
+## Key Differences
+
+{{#each sections}}
+{{#ifEquals type "findings"}}
+{{content}}
+{{/ifEquals}}
+{{/each}}
+
+---
+
+{{#if references}}
+## References
+
+{{#each references}}
+{{shortForm}} {{formatted}}
+{{/each}}
+{{/if}}
+
+---
+
+*Comparison Report • Generated: {{formatDate metadata.createdAt}}*
+*Research Automation MCP Server • Credibility: {{credibilityPercentage}}%*

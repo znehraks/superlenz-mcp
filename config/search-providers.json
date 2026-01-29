@@ -1,0 +1,83 @@
+{
+  "providers": {
+    "web": {
+      "brave": {
+        "enabled": true,
+        "apiKey": "${BRAVE_SEARCH_API_KEY}",
+        "endpoint": "https://api.search.brave.com/res/v1/web/search",
+        "rateLimit": {
+          "maxRequests": 15,
+          "perMinutes": 1
+        },
+        "defaultParams": {
+          "count": 10,
+          "search_lang": "en",
+          "country": "us"
+        }
+      },
+      "exa": {
+        "enabled": true,
+        "apiKey": "${EXA_API_KEY}",
+        "endpoint": "https://api.exa.ai/search",
+        "rateLimit": {
+          "maxRequests": 10,
+          "perMinutes": 1
+        },
+        "defaultParams": {
+          "numResults": 10,
+          "useAutoprompt": true
+        }
+      }
+    },
+    "academic": {
+      "arxiv": {
+        "enabled": true,
+        "endpoint": "http://export.arxiv.org/api/query",
+        "rateLimit": {
+          "maxRequests": 3,
+          "perSeconds": 1
+        },
+        "defaultParams": {
+          "max_results": 10
+        }
+      },
+      "semanticScholar": {
+        "enabled": true,
+        "endpoint": "https://api.semanticscholar.org/graph/v1",
+        "apiKey": "${SEMANTIC_SCHOLAR_API_KEY}",
+        "rateLimit": {
+          "maxRequests": 100,
+          "perMinutes": 5
+        },
+        "defaultParams": {
+          "limit": 10,
+          "fields": "title,abstract,authors,year,citationCount,url,publicationDate"
+        }
+      }
+    },
+    "github": {
+      "enabled": true,
+      "token": "${GITHUB_TOKEN}",
+      "endpoint": "https://api.github.com",
+      "rateLimit": {
+        "maxRequests": 30,
+        "perMinutes": 1
+      }
+    },
+    "youtube": {
+      "enabled": false,
+      "apiKey": "${YOUTUBE_API_KEY}",
+      "endpoint": "https://www.googleapis.com/youtube/v3",
+      "rateLimit": {
+        "maxRequests": 100,
+        "perDay": 1
+      }
+    },
+    "reddit": {
+      "enabled": false,
+      "clientId": "${REDDIT_CLIENT_ID}",
+      "clientSecret": "${REDDIT_CLIENT_SECRET}",
+      "userAgent": "research-automation-mcp/0.1.0"
+    }
+  }
+}

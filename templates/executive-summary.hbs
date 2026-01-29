@@ -1,0 +1,52 @@
+---
+title: "{{title}}"
+type: executive-summary
+credibility: {{metadata.credibilityScore}}
+---
+
+# {{title}}
+
+## Executive Summary
+
+{{summary}}
+
+---
+
+## Key Findings
+
+{{#each sections}}
+{{#ifEquals type "findings"}}
+{{content}}
+{{/ifEquals}}
+{{/each}}
+
+---
+
+## Credibility Assessment
+
+- **Overall Credibility**: **{{credibilityPercentage}}%** ({{credibilityLevel}})
+- **Sources Analyzed**: {{metadata.sourcesCount}}
+- **Verification Rounds**: {{metadata.verificationRounds}}
+- **Verified Claims**: {{verificationSummary.verifiedClaims}} / {{verificationSummary.totalClaims}}
+
+---
+
+## Source Quality
+
+{{sourceBreakdown verificationSummary.sourceBreakdown}}
+
+---
+
+{{#if references}}
+## Top References
+
+{{#each references}}
+{{#if @first}}{{shortForm}} {{formatted}}{{/if}}
+{{#if @index}}{{#if (lt @index 5)}}{{shortForm}} {{formatted}}{{/if}}{{/if}}
+{{/each}}
+{{/if}}
+
+---
+
+*Generated: {{formatDate metadata.createdAt}}*
+*Research Automation MCP Server • Credibility: {{credibilityPercentage}}%*
