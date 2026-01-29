@@ -1,4 +1,5 @@
 import type { Claim, VerifiedClaim } from '../../src/core/types';
+import { createMockSource } from './sources';
 
 export const createMockClaim = (overrides?: Partial<Claim>): Claim => ({
   id: 'claim-1',
@@ -10,8 +11,9 @@ export const createMockClaim = (overrides?: Partial<Claim>): Claim => ({
 
 export const createVerifiedClaim = (overrides?: Partial<VerifiedClaim>): VerifiedClaim => ({
   ...createMockClaim(),
-  supportingSources: ['source-1'],
+  supportingSources: [createMockSource()],
   contradictingSources: [],
   verificationRounds: 10,
+  finalConfidence: 0.8,
   ...overrides
 });

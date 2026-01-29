@@ -5,10 +5,11 @@ export const createMockSource = (overrides?: Partial<Source>): Source => ({
   type: 'web',
   url: 'https://example.com',
   title: 'Test Source',
-  snippet: 'Test snippet content',
-  relevanceScore: 0.8,
   credibilityScore: 0.7,
+  credibilityLevel: 'medium',
   publishedDate: new Date('2025-01-01'),
+  accessedDate: new Date('2026-01-29'),
+  metadata: {},
   ...overrides
 });
 
@@ -16,7 +17,8 @@ export const createAcademicSource = (overrides?: Partial<Source>): Source => ({
   ...createMockSource(),
   type: 'academic',
   credibilityScore: 0.9,
-  citations: 100,
+  credibilityLevel: 'high',
+  citationCount: 100,
   ...overrides
 });
 

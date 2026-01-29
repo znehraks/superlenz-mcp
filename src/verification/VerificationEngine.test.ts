@@ -24,13 +24,14 @@ describe('VerificationEngine - verify() pipeline', () => {
     };
   });
 
-  it('should complete all 10 rounds with sufficient data', async () => {
+  it('should complete all rounds with sufficient data', async () => {
     const result = await engine.verify(context);
 
-    expect(result.totalRounds).toBe(10);
+    // Should complete 9 rounds (round 8 skipped if no conflicts)
+    expect(result.totalRounds).toBe(9);
     expect(result.finalConfidence).toBeGreaterThan(0.5);
     expect(result.verifiedClaims).toHaveLength(2);
-    expect(result.results).toHaveLength(10);
+    expect(result.results).toHaveLength(9);
   });
 
   it('should exit early when confidence >= 0.85 and sufficient sources', async () => {
@@ -43,8 +44,8 @@ describe('VerificationEngine - verify() pipeline', () => {
 
     const result = await highConfidenceEngine.verify(context);
 
-    // Should still complete minRounds (10) before checking early exit
-    expect(result.totalRounds).toBeGreaterThanOrEqual(10);
+    // Should complete minRounds before checking early exit (9 rounds if no conflicts)
+    expect(result.totalRounds).toBeGreaterThanOrEqual(9);
   });
 
   it('should handle empty sources array gracefully', async () => {
@@ -56,7 +57,7 @@ describe('VerificationEngine - verify() pipeline', () => {
     const result = await engine.verify(emptyContext);
 
     expect(result.verifiedClaims).toHaveLength(2);
-    expect(result.totalRounds).toBe(10);
+    expect(result.totalRounds).toBe(9);
   });
 
   it('should handle empty claims array', async () => {
@@ -68,7 +69,7 @@ describe('VerificationEngine - verify() pipeline', () => {
     const result = await engine.verify(emptyContext);
 
     expect(result.verifiedClaims).toHaveLength(0);
-    expect(result.totalRounds).toBe(10);
+    expect(result.totalRounds).toBe(9);
   });
 
   it('should accumulate verification history across rounds', async () => {
@@ -93,8 +94,8 @@ describe('VerificationEngine - verify() pipeline', () => {
 
     const result = await noEarlyExitEngine.verify(context);
 
-    // Should run full 10 rounds regardless of confidence
-    expect(result.totalRounds).toBe(10);
+    // Should run all rounds regardless of confidence (9 rounds if no conflicts)
+    expect(result.totalRounds).toBe(9);
   });
 
   it('should build verified claims with proper structure', async () => {
@@ -439,8 +440,8 @@ describe('VerificationEngine - early exit conditions', () => {
 
     const result = await engine.verify(context);
 
-    // Should complete at least 10 rounds
-    expect(result.totalRounds).toBeGreaterThanOrEqual(10);
+    // Should complete at least 9 rounds (round 8 skipped if no conflicts)
+    expect(result.totalRounds).toBeGreaterThanOrEqual(9);
   });
 
   it('should check confidence threshold (>= 0.85)', async () => {
@@ -461,8 +462,8 @@ describe('VerificationEngine - early exit conditions', () => {
 
     const result = await engine.verify(context);
 
-    // Early exit should be possible after round 10 if confidence is high
-    expect(result.totalRounds).toBeGreaterThanOrEqual(10);
+    // Early exit should be possible after minRounds if confidence is high
+    expect(result.totalRounds).toBeGreaterThanOrEqual(9);
   });
 
   it('should check source count (>= 5)', async () => {
@@ -483,8 +484,8 @@ describe('VerificationEngine - early exit conditions', () => {
 
     const result = await engine.verify(context);
 
-    // Should complete 10 rounds (no early exit with insufficient sources)
-    expect(result.totalRounds).toBe(10);
+    // Should complete 9 rounds (round 8 skipped if no conflicts)
+    expect(result.totalRounds).toBe(9);
   });
 
   it('should respect earlyExitDisabled flag', async () => {
@@ -502,8 +503,8 @@ describe('VerificationEngine - early exit conditions', () => {
 
     const result = await engine.verify(context);
 
-    // Should run full 10 rounds
-    expect(result.totalRounds).toBe(10);
+    // Should run 9 rounds (round 8 skipped if no conflicts)
+    expect(result.totalRounds).toBe(9);
   });
 });
 
