@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="SuperLenz Logo" width="240" />
+</p>
+
 # SuperLenz
 
 > *Lenz — from Latin "lenticula" (lens). A super-powered lens that magnifies the truth.*
