@@ -43,7 +43,7 @@ Add to `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
-    "research-automation": {
+    "superlenz": {
       "command": "node",
       "args": ["/Users/youjungmin/research/research-automation-mcp/dist/index.js"]
     }
