@@ -67,10 +67,9 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 **Option A — CLI command:**
 
 ```bash
-claude mcp add \
+claude mcp add superlenz \
   -e BRAVE_SEARCH_API_KEY=your_key \
   -e ANTHROPIC_API_KEY=your_key \
-  superlenz \
   -- npx -y superlenz
 ```
 
