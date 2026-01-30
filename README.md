@@ -5,104 +5,47 @@
 
 **High-credibility research automation with multi-source cross-verification (10+ rounds)**
 
-A Model Context Protocol (MCP) server that automates research tasks with a focus on credibility and accuracy. It performs automatic searching, collection, cross-verification (10+ rounds), and saves results to your preferred storage (Notion, Confluence, Markdown, etc.).
+A Model Context Protocol (MCP) server that automates research tasks with a focus on credibility and accuracy. It performs automatic searching, collection, cross-verification (10+ rounds), and saves results to your preferred storage.
 
 ## Features
 
-- **Multi-Source Search**: Web search (Brave, Exa), academic papers (arXiv, Semantic Scholar), GitHub, and more
-- **10-Round Cross-Verification**: Rigorous fact-checking with conflict detection and resolution
-- **Credibility Scoring**: Authority assessment, temporal validation, statistical analysis
-- **Flexible Storage**: Markdown (default), Notion, Confluence, Obsidian, JSON
+- **Multi-Source Search**: Web search (Brave, Exa), academic papers (arXiv, Semantic Scholar), GitHub
+- **10-Round Cross-Verification**: Keyword overlap matching (rounds 1-4), conflict detection (5-8), optional LLM verification (9-10)
+- **Credibility Scoring**: Authority assessment, temporal validation, source weighting
+- **Flexible Storage**: Markdown (default), JSON
 - **Plugin Architecture**: Extensible storage and search providers
-- **Conflict Resolution**: Automatic detection and resolution of conflicting information
-
-## Core Value Proposition
-
-**Trustworthy Documentation** through:
-- Multi-source cross-verification (10+ rounds)
-- Source authority evaluation
-- Conflict detection and resolution
-- Comprehensive citation management
 
 ## Requirements
 
 - Node.js >= 18.0.0
-- Any MCP-compatible client (Claude Code, Cursor, Windsurf, etc.)
+- Any MCP-compatible client
 
-## Installation
+## Environment Variables
 
-```bash
-# Install from npm
-npm install superlenz
+Set these via the `env` field in your MCP client configuration.
 
-# Or install globally
-npm install -g superlenz
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `BRAVE_SEARCH_API_KEY` | At least one search key | Brave Search API key |
+| `EXA_API_KEY` | At least one search key | Exa Search API key |
+| `SEMANTIC_SCHOLAR_API_KEY` | No | Semantic Scholar API key (improves rate limits) |
+| `GITHUB_TOKEN` | No | GitHub token for repository search |
+| `ANTHROPIC_API_KEY` | No | Enables LLM-based verification (rounds 9-10) |
+| `OUTPUT_PATH` | No | Output directory for saved documents (default: `./output`) |
 
-# Or clone from source
-git clone https://github.com/znehraks/superlenz.git
-cd superlenz
+arXiv search is always available without an API key.
 
-# Install dependencies
-npm install
+---
 
-# Copy environment template
-cp .env.example .env
+## MCP Client Configuration
 
-# Edit .env with your API keys
-nano .env
+All examples below use **npx** — no prior installation required.
 
-# Build the project
-npm run build
-```
+### Claude Desktop
 
-## Configuration
+> No CLI — edit the JSON config file directly.
 
-### Environment Variables
-
-Edit `.env` file:
-
-```bash
-# Search APIs (at least one required)
-BRAVE_SEARCH_API_KEY=your_key_here
-EXA_API_KEY=your_key_here
-GITHUB_TOKEN=your_token_here
-
-# AI API (required for verification)
-ANTHROPIC_API_KEY=your_key_here
-
-# Storage (optional, based on your needs)
-NOTION_ACCESS_TOKEN=your_token_here
-NOTION_DATABASE_ID=your_database_id_here
-
-# Confluence (optional)
-CONFLUENCE_BASE_URL=https://your-domain.atlassian.net
-CONFLUENCE_EMAIL=your.email@example.com
-CONFLUENCE_API_TOKEN=your_token_here
-CONFLUENCE_SPACE_KEY=YOUR_SPACE
-```
-
-### Storage Configuration
-
-Edit `config/storage-config.json` to configure storage providers. Markdown is enabled by default.
-
-### MCP Server Registration
-
-Add to your MCP client settings (e.g. `~/.claude/settings.json`):
-
-**Option 1: npx (recommended, no install needed)**
-
-```json
-{
-  "mcpServers": {
-    "superlenz": {
-      "command": "npx",
-      "args": ["-y", "superlenz"]
-    }
-  }
-}
-```
-
-To pass environment variables (API keys, etc.):
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
@@ -111,275 +54,245 @@ To pass environment variables (API keys, etc.):
       "command": "npx",
       "args": ["-y", "superlenz"],
       "env": {
-        "BRAVE_SEARCH_API_KEY": "your_key_here",
-        "ANTHROPIC_API_KEY": "your_key_here"
+        "BRAVE_SEARCH_API_KEY": "your_key",
+        "ANTHROPIC_API_KEY": "your_key"
       }
     }
   }
 }
 ```
 
-**Option 2: Local install**
+### Claude Code (CLI)
+
+**Option A — CLI command:**
+
+```bash
+claude mcp add --transport stdio \
+  --env BRAVE_SEARCH_API_KEY=your_key \
+  --env ANTHROPIC_API_KEY=your_key \
+  superlenz \
+  -- npx -y superlenz
+```
+
+| Flag | Description |
+|------|-------------|
+| `--scope user` | Save to `~/.claude/settings.json` (all projects) |
+| `--scope project` | Save to `.mcp.json` in the current project root |
+
+Management commands:
+
+```bash
+claude mcp list              # list registered servers
+claude mcp remove superlenz  # remove a server
+```
+
+**Option B — JSON config:**
+
+Edit `~/.claude/settings.json` (or `.claude/settings.json` at the project root):
 
 ```json
 {
   "mcpServers": {
     "superlenz": {
-      "command": "node",
-      "args": ["/absolute/path/to/superlenz/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "superlenz"],
       "env": {
-        "BRAVE_SEARCH_API_KEY": "${BRAVE_SEARCH_API_KEY}",
-        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
-        "NOTION_ACCESS_TOKEN": "${NOTION_ACCESS_TOKEN}"
+        "BRAVE_SEARCH_API_KEY": "your_key",
+        "ANTHROPIC_API_KEY": "your_key"
       }
     }
   }
 }
 ```
 
-## Usage
+### Cursor
 
-### Basic Research
+> No CLI "add" command — edit the config file or use the Settings UI.
 
-```
-User: Research "Google Stitch vs Figma Code Connect"
+Open **Settings > MCP Servers** and add, or edit `.cursor/mcp.json` (project) / `~/.cursor/mcp.json` (global):
 
-SuperLenz will:
-1. Start research session
-2. Search multiple sources
-3. Cross-verify information (10 rounds)
-4. Generate comprehensive document
-5. Save to Markdown (default) or your chosen storage
-```
-
-### URL-Based Research
-
-```
-User: Research these URLs:
-- https://github.com/figma/code-connect
-- https://developers.figma.com/docs/code-connect/
-
-SuperLenz will prioritize user-provided URLs and supplement with additional sources.
+```json
+{
+  "mcpServers": {
+    "superlenz": {
+      "command": "npx",
+      "args": ["-y", "superlenz"],
+      "env": {
+        "BRAVE_SEARCH_API_KEY": "your_key",
+        "ANTHROPIC_API_KEY": "your_key"
+      }
+    }
+  }
+}
 ```
 
-### Specify Storage
+Management commands (in Cursor's terminal):
 
+```bash
+cursor agent mcp list                # list servers
+cursor agent mcp enable <id>         # enable a server
+cursor agent mcp disable <id>        # disable a server
 ```
-User: Research "wedding costs in Korea 2025" and save to Notion
 
-SuperLenz will use Notion as the storage provider instead of the default Markdown.
+### VS Code (Copilot)
+
+**Option A — CLI command:**
+
+```bash
+code --add-mcp '{
+  "name": "superlenz",
+  "command": "npx",
+  "args": ["-y", "superlenz"],
+  "env": {
+    "BRAVE_SEARCH_API_KEY": "your_key",
+    "ANTHROPIC_API_KEY": "your_key"
+  }
+}'
 ```
+
+**Option B — JSON config:**
+
+Edit `.vscode/mcp.json` in your workspace. Note: VS Code uses the `"servers"` key (not `"mcpServers"`).
+
+```json
+{
+  "servers": {
+    "superlenz": {
+      "command": "npx",
+      "args": ["-y", "superlenz"],
+      "env": {
+        "BRAVE_SEARCH_API_KEY": "your_key",
+        "ANTHROPIC_API_KEY": "your_key"
+      }
+    }
+  }
+}
+```
+
+You can also use an `"inputs"` array to prompt for secrets at runtime instead of hard-coding them:
+
+```json
+{
+  "inputs": [
+    { "id": "brave-key", "type": "promptString", "description": "Brave Search API Key", "password": true }
+  ],
+  "servers": {
+    "superlenz": {
+      "command": "npx",
+      "args": ["-y", "superlenz"],
+      "env": {
+        "BRAVE_SEARCH_API_KEY": "${input:brave-key}"
+      }
+    }
+  }
+}
+```
+
+Or add to VS Code `settings.json` under `"mcp.servers"`.
+
+### Gemini CLI
+
+**Option A — CLI command:**
+
+```bash
+gemini mcp add \
+  -e BRAVE_SEARCH_API_KEY=your_key \
+  -e ANTHROPIC_API_KEY=your_key \
+  superlenz npx -y superlenz
+```
+
+Management commands:
+
+```bash
+gemini mcp list              # list registered servers
+gemini mcp remove superlenz  # remove a server
+```
+
+**Option B — JSON config:**
+
+Edit `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "superlenz": {
+      "command": "npx",
+      "args": ["-y", "superlenz"],
+      "env": {
+        "BRAVE_SEARCH_API_KEY": "your_key",
+        "ANTHROPIC_API_KEY": "your_key"
+      }
+    }
+  }
+}
+```
+
+---
 
 ## MCP Tools
 
 ### `start_research`
 
-Start a new research session.
+Start a new research session. Searches multiple sources, cross-verifies claims, generates a document, and saves the result.
 
-**Input:**
-- `topic` (string): Research topic
-- `urls` (string[], optional): Initial URLs to analyze
-- `depth` ("quick" | "standard" | "deep"): Verification depth
-- `storage` ("markdown" | "notion" | "json" | "html"): Storage provider
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `topic` | string | *(required)* | Research topic or question |
+| `urls` | string[] | — | Initial URLs to include in research |
+| `depth` | `"quick"` \| `"standard"` \| `"deep"` | `"standard"` | Verification depth (5 / 10 / 15 rounds) |
+| `storage` | `"markdown"` \| `"notion"` \| `"json"` \| `"html"` \| `"confluence"` | `"markdown"` | Storage provider for the final document |
+| `template` | `"comprehensive"` \| `"executive-summary"` \| `"comparison"` \| `"guide"` | `"comprehensive"` | Document template |
 
-**Output:**
-- `sessionId`: Unique session identifier
-- `status`: Current status
+### `search_sources`
+
+Search for sources across multiple providers without running a full research pipeline.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | string | *(required)* | Search query |
+| `sources` | string[] | `["web", "academic"]` | Providers: `web`, `academic`, `github`, `youtube`, `reddit` |
+| `limit` | number | `10` | Maximum results per source (1-50) |
+| `minRelevance` | number | `0.5` | Minimum relevance score (0-1) |
 
 ### `get_research_status`
 
-Get the status of a research session.
+Get the current status of a research session.
 
-**Input:**
-- `sessionId` (string): Session ID
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sessionId` | string | *(required)* | Session ID to check |
 
-**Output:**
-- Current progress, verification rounds, conflicts found, etc.
+### `list_sessions`
+
+List all research sessions with optional filtering.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `status` | string | — | Filter by status: `initializing`, `searching`, `collecting`, `verifying`, `generating`, `saving`, `completed`, `failed` |
+| `limit` | number | `20` | Max sessions to return (1-100) |
 
 ### `cross_verify`
 
-Perform cross-verification on claims.
+Cross-verify a list of claims against optional source URLs.
 
-**Input:**
-- `sessionId` (string): Session ID
-- `claims` (Claim[]): Claims to verify
-- `minVerifications` (number): Minimum verification rounds (default: 10)
-
-**Output:**
-- Verified claims with confidence scores
-- Detected conflicts
-- Resolution strategies
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `claims` | string[] | *(required)* | List of claims to verify |
+| `topic` | string | *(required)* | Topic context for verification |
+| `sources` | string[] | — | Optional source URLs to check against |
 
 ### `save_to_storage`
 
-Save research results to storage.
+Save a previously generated research document to a storage provider.
 
-**Input:**
-- `sessionId` (string): Session ID
-- `storage` (string): Storage provider name
-- `destination` (string): File path or page ID
-- `metadata`: Document metadata (title, tags, category)
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sessionId` | string | *(required)* | Session ID of the research to save |
+| `provider` | `"markdown"` \| `"json"` | `"markdown"` | Storage provider |
+| `destination` | string | — | Custom file path or name |
 
-**Output:**
-- Save result with destination URL
-
-## Architecture
-
-```
-┌─────────────────────────────────────┐
-│    MCP Tools (8 tools)              │
-├─────────────────────────────────────┤
-│    Core Modules                     │
-│    • ResearchOrchestrator           │
-│    • VerificationEngine             │
-│    • StorageManager                 │
-│    • PluginRegistry                 │
-├─────────────────────────────────────┤
-│    Plugin Layer                     │
-│    • Storage Providers              │
-│    • Search Providers               │
-│    • Verification Providers         │
-└─────────────────────────────────────┘
-```
-
-## 10-Round Verification Process
-
-1. **Round 1-4**: Multi-source collection (web, academic, user URLs)
-2. **Round 5**: Temporal verification (recency, time-series)
-3. **Round 6**: Statistical cross-verification (CV < 0.5)
-4. **Round 7**: Scope analysis (data range differences)
-5. **Round 8**: Conflict resolution (5 types)
-6. **Round 9**: Expert verification
-7. **Round 10**: Final consensus building
-
-**Early Exit Conditions:**
-- Credibility score >= 0.85
-- Minimum 6 rounds completed
-- Minimum 5 sources verified
-- Agreement rate >= 0.80
-
-## Credibility Scoring
-
-- **Source Credibility (40%)**: Academic papers (0.9-1.0), Official docs (0.85-0.95), News (0.7-0.85)
-- **Cross-Verification Agreement (30%)**: Consistency across sources
-- **Recency (15%)**: Half-life decay model
-- **Citation Count (10%)**: Academic citation metrics
-- **Expert Verification (5%)**: Industry expert opinions
-
-## Storage Providers
-
-### Markdown (Priority 1, Default)
-- Local filesystem
-- YAML frontmatter
-- Image support
-
-### Notion (Priority 2)
-- Uses existing Notion MCP
-- Database integration
-- Rich text support
-
-### Confluence (Priority 3)
-- REST API integration
-- CQL search
-- Space management
-
-### Obsidian (Priority 2.5)
-- Vault structure
-- Wiki-links and tags
-- Daily note format
-
-### Fallback Strategy
-```
-1st attempt: Specified storage (3 retries)
-2nd attempt: Priority-based fallback
-    • Markdown (most stable)
-    • Notion (MCP available)
-    • JSON (backup)
-```
-
-## Testing
-
-```bash
-# Run unit tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run integration tests
-npm run test:integration
-
-# Watch mode
-npm run test:watch
-```
-
-## Development
-
-```bash
-# Development mode with auto-rebuild
-npm run dev
-
-# Lint code
-npm run lint
-
-# Fix lint issues
-npm run lint:fix
-```
-
-## Roadmap
-
-### Phase 1: Infrastructure (Complete)
-- Core modules (types, config, sessions, plugins)
-- Configuration management
-- Plugin registry
-- Utilities (logger, cache, rate limiter)
-
-### Phase 2: Search & Collection (Complete)
-- Multi-source search providers
-- Web scraping with Crawlee
-- Content extraction
-
-### Phase 3: Verification Engine (Complete)
-- 10-round verification pipeline
-- Conflict detection and resolution
-- Credibility scoring
-
-### Phase 4: Storage Plugins (In Progress)
-- 4 storage providers
-- Fallback strategy
-- Image handling
-
-### Phase 5: Document Generation (Complete)
-- Template system
-- Citation management
-- MCP tool implementation
-
-### Phase 6: Orchestration (Complete)
-- Full workflow integration
-- Error recovery
-- Progress tracking
-
-### Phase 7: Testing & Documentation (Upcoming)
-- Comprehensive test suite
-- User documentation
-- Production ready
-
-## Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and workflow.
+---
 
 ## License
 
 MIT
-
-## Acknowledgments
-
-Built with:
-- [Model Context Protocol SDK](https://github.com/modelcontextprotocol/typescript-sdk)
-- [Anthropic Claude API](https://www.anthropic.com/)
-- [Crawlee](https://github.com/apify/crawlee)
-- Many other excellent open-source libraries
-
----
-
-**Status**: Phase 7 upcoming — Testing & Documentation
