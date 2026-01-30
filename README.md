@@ -67,7 +67,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 **Option A — CLI command:**
 
 ```bash
-claude mcp add -s user -t stdio \
+claude mcp add \
   -e BRAVE_SEARCH_API_KEY=your_key \
   -e ANTHROPIC_API_KEY=your_key \
   superlenz \
@@ -76,10 +76,11 @@ claude mcp add -s user -t stdio \
 
 | Flag | Description |
 |------|-------------|
+| `-s local` | Save to `.claude/settings.local.json` (default) |
 | `-s user` | Save to `~/.claude/settings.json` (all projects) |
 | `-s project` | Save to `.mcp.json` in the current project root |
 | `-e KEY=val` | Set an environment variable |
-| `-t stdio` | Transport type (default: `stdio`) |
+| `-t <transport>` | Transport type: `stdio` (default), `sse`, `http` |
 
 Management commands:
 
