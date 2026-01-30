@@ -135,12 +135,8 @@ async function initializeServer(): Promise<void> {
   const sessionManager = getSessionManager();
   const pluginRegistry = getPluginRegistry();
 
-  try {
-    configManager.validateRequiredEnvVars(['ANTHROPIC_API_KEY']);
-    logInfo('Environment variables validated');
-  } catch (error) {
-    logError('Environment validation failed', error);
-    throw error;
+  if (!process.env.ANTHROPIC_API_KEY) {
+    logInfo('ANTHROPIC_API_KEY not set — verification features will be limited');
   }
 
   try {

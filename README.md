@@ -89,6 +89,38 @@ Edit `config/storage-config.json` to configure storage providers. Markdown is en
 
 Add to your MCP client settings (e.g. `~/.claude/settings.json`):
 
+**Option 1: npx (recommended, no install needed)**
+
+```json
+{
+  "mcpServers": {
+    "superlenz": {
+      "command": "npx",
+      "args": ["-y", "superlenz"]
+    }
+  }
+}
+```
+
+To pass environment variables (API keys, etc.):
+
+```json
+{
+  "mcpServers": {
+    "superlenz": {
+      "command": "npx",
+      "args": ["-y", "superlenz"],
+      "env": {
+        "BRAVE_SEARCH_API_KEY": "your_key_here",
+        "ANTHROPIC_API_KEY": "your_key_here"
+      }
+    }
+  }
+}
+```
+
+**Option 2: Local install**
+
 ```json
 {
   "mcpServers": {
