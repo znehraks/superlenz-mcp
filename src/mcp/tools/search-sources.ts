@@ -4,9 +4,7 @@
  */
 
 import { z } from 'zod';
-import { SearchEngine } from '../../search/SearchEngine.js';
-
-const searchEngine = new SearchEngine();
+import { createConfiguredSearchEngine } from '../../search/createConfiguredSearchEngine.js';
 
 export const searchSourcesSchema = z.object({
   query: z.string().min(1).describe('Search query'),
@@ -26,9 +24,10 @@ export const searchSourcesSchema = z.object({
 export type SearchSourcesInput = z.infer<typeof searchSourcesSchema>;
 
 export async function searchSources(input: SearchSourcesInput) {
+  const searchEngine = createConfiguredSearchEngine();
+
   try {
     const results = [];
-    // input.sources are compatible with SourceType
     const sourceTypes = input.sources as ('web' | 'academic' | 'github' | 'youtube' | 'reddit')[];
 
     for (const sourceType of sourceTypes) {

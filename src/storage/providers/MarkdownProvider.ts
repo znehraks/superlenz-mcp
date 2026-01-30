@@ -11,8 +11,12 @@ import type {
   SearchQuery,
   HealthStatus,
   StorageConfig,
+  Section,
+  SectionType,
+  SourceType,
 } from '../../core/types.js';
 import { logInfo, logError } from '../../utils/logger.js';
+import { nanoid } from 'nanoid';
 
 export interface MarkdownConfig extends StorageConfig {
   basePath: string;
@@ -59,6 +63,8 @@ export class MarkdownProvider implements StorageProvider {
       const filename = destination || this.generateFilename(doc);
       const filepath = path.join(this.config.basePath, filename);
 
+      await fs.mkdir(path.dirname(filepath), { recursive: true });
+
       // Generate markdown content
       const markdown = this.generateMarkdown(doc);
 
@@ -86,14 +92,16 @@ export class MarkdownProvider implements StorageProvider {
 
   async getDocument(id: string): Promise<ResearchDocument | null> {
     try {
-      const filepath = path.join(this.config.basePath, id);
-      await fs.readFile(filepath, 'utf-8');
+      let filepath = path.join(this.config.basePath, id);
+      if (!filepath.endsWith('.md')) {
+        filepath += '.md';
+      }
 
-      // Parse markdown (simplified - just return null for now)
-      // In production, would parse frontmatter and sections
+      const content = await fs.readFile(filepath, 'utf-8');
+      const doc = this.parseMarkdown(content, id);
+
       logInfo(`Document retrieved: ${filepath}`);
-
-      return null; // Placeholder
+      return doc;
     } catch (error) {
       logError('Failed to get document', error);
       return null;
@@ -101,9 +109,42 @@ export class MarkdownProvider implements StorageProvider {
   }
 
   async searchDocuments(query: SearchQuery): Promise<ResearchDocument[]> {
-    // Simplified implementation
-    logInfo('Searching documents', { query: query.query });
-    return [];
+    try {
+      const files = await this.listMarkdownFiles();
+      const results: ResearchDocument[] = [];
+      const searchTerm = query.query.toLowerCase();
+
+      for (const file of files) {
+        try {
+          const content = await fs.readFile(file, 'utf-8');
+          const frontmatter = this.extractFrontmatter(content);
+
+          const matchesTitle = frontmatter.title?.toLowerCase().includes(searchTerm);
+          const matchesTopic = frontmatter.topic?.toLowerCase().includes(searchTerm);
+          const matchesTags = frontmatter.tags?.some(
+            (t: string) => t.toLowerCase().includes(searchTerm)
+          );
+
+          if (matchesTitle || matchesTopic || matchesTags) {
+            const basename = path.basename(file);
+            const doc = this.parseMarkdown(content, basename);
+            if (doc) {
+              results.push(doc);
+            }
+          }
+        } catch {
+          // Skip malformed files
+        }
+
+        if (query.limit && results.length >= query.limit) break;
+      }
+
+      logInfo(`Search found ${results.length} markdown documents`, { query: query.query });
+      return results;
+    } catch (error) {
+      logError('Failed to search documents', error);
+      return [];
+    }
   }
 
   async healthCheck(): Promise<HealthStatus> {
@@ -124,6 +165,168 @@ export class MarkdownProvider implements StorageProvider {
       };
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Markdown parsing helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Parse a markdown file back into a ResearchDocument.
+   * Best-effort: may not perfectly round-trip all metadata.
+   */
+  private parseMarkdown(content: string, fileId: string): ResearchDocument | null {
+    const frontmatter = this.extractFrontmatter(content);
+
+    // Remove frontmatter block from content
+    const bodyContent = content.replace(/^---[\s\S]*?---\n*/, '');
+
+    // Extract sections split by ## headings
+    const sections = this.extractSections(bodyContent);
+
+    // Extract title from first # heading or frontmatter
+    const titleMatch = bodyContent.match(/^# (.+)$/m);
+    const title = frontmatter.title || (titleMatch ? titleMatch[1] : 'Untitled');
+    const topic = frontmatter.topic || title;
+
+    // Extract summary (blockquote after title)
+    const summaryMatch = bodyContent.match(/^> (.+)$/m);
+    const summary = summaryMatch ? summaryMatch[1] : '';
+
+    return {
+      id: fileId,
+      title,
+      topic,
+      summary,
+      sections,
+      references: [], // References are hard to parse back reliably
+      metadata: {
+        createdAt: frontmatter.created ? new Date(frontmatter.created) : new Date(),
+        updatedAt: frontmatter.updated ? new Date(frontmatter.updated) : new Date(),
+        author: frontmatter.author || 'unknown',
+        version: frontmatter.version || '1.0.0',
+        tags: frontmatter.tags || [],
+        category: frontmatter.category,
+        credibilityScore: parseFloat(frontmatter.credibility) || 0,
+        verificationRounds: 0,
+        sourcesCount: 0,
+        conflictsResolved: 0,
+      },
+      verificationSummary: {
+        totalClaims: 0,
+        verifiedClaims: 0,
+        averageConfidence: parseFloat(frontmatter.credibility) || 0,
+        sourceBreakdown: {} as Record<SourceType, number>,
+      },
+    };
+  }
+
+  /**
+   * Extract YAML frontmatter as a simple key-value object.
+   */
+  private extractFrontmatter(content: string): Record<string, any> {
+    const match = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return {};
+
+    const fm: Record<string, any> = {};
+    const lines = match[1].split('\n');
+    let currentKey: string | null = null;
+    let listItems: string[] = [];
+
+    for (const line of lines) {
+      // List item under a key
+      if (line.match(/^\s+-\s+(.+)/) && currentKey) {
+        const itemMatch = line.match(/^\s+-\s+(.+)/);
+        if (itemMatch) listItems.push(itemMatch[1].trim());
+        continue;
+      }
+
+      // Flush any accumulated list
+      if (currentKey && listItems.length > 0) {
+        fm[currentKey] = listItems;
+        listItems = [];
+        currentKey = null;
+      }
+
+      // Key-value pair
+      const kvMatch = line.match(/^(\w[\w-]*)\s*:\s*(.*)/);
+      if (kvMatch) {
+        const key = kvMatch[1];
+        const value = kvMatch[2].trim();
+        if (value === '' || value === undefined) {
+          // Could be start of a list
+          currentKey = key;
+        } else {
+          // Strip quotes
+          fm[key] = value.replace(/^["']|["']$/g, '');
+        }
+      }
+    }
+
+    // Flush trailing list
+    if (currentKey && listItems.length > 0) {
+      fm[currentKey] = listItems;
+    }
+
+    return fm;
+  }
+
+  /**
+   * Split markdown body into Section objects based on ## headings.
+   */
+  private extractSections(body: string): Section[] {
+    const sections: Section[] = [];
+    const sectionRegex = /^## (.+)$/gm;
+    const headings: { title: string; start: number }[] = [];
+
+    let match;
+    while ((match = sectionRegex.exec(body)) !== null) {
+      headings.push({ title: match[1], start: match.index + match[0].length });
+    }
+
+    for (let i = 0; i < headings.length; i++) {
+      const start = headings[i].start;
+      const end = i + 1 < headings.length ? headings[i + 1].start - headings[i + 1].title.length - 4 : body.length;
+      const content = body.slice(start, end).trim();
+
+      sections.push({
+        id: nanoid(),
+        type: this.inferSectionType(headings[i].title),
+        title: headings[i].title,
+        content,
+      });
+    }
+
+    return sections;
+  }
+
+  private inferSectionType(title: string): SectionType {
+    const lower = title.toLowerCase();
+    if (lower.includes('executive') || lower.includes('summary')) return 'executive-summary';
+    if (lower.includes('introduction')) return 'introduction';
+    if (lower.includes('method')) return 'methodology';
+    if (lower.includes('finding')) return 'findings';
+    if (lower.includes('compar')) return 'comparison';
+    if (lower.includes('analy')) return 'analysis';
+    if (lower.includes('conclusion')) return 'conclusion';
+    if (lower.includes('reference')) return 'references';
+    if (lower.includes('appendix')) return 'appendix';
+    return 'findings'; // default
+  }
+
+  private async listMarkdownFiles(): Promise<string[]> {
+    try {
+      const entries = await fs.readdir(this.config.basePath, { withFileTypes: true });
+      return entries
+        .filter(e => e.isFile() && e.name.endsWith('.md'))
+        .map(e => path.join(this.config.basePath, e.name));
+    } catch {
+      return [];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Markdown generation
+  // ---------------------------------------------------------------------------
 
   /**
    * Generate markdown content from document

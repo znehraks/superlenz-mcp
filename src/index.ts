@@ -23,6 +23,8 @@ import { startResearch, startResearchSchema } from './mcp/tools/start-research.j
 import { searchSources, searchSourcesSchema } from './mcp/tools/search-sources.js';
 import { getResearchStatus, getResearchStatusSchema } from './mcp/tools/get-research-status.js';
 import { listSessions, listSessionsSchema } from './mcp/tools/list-sessions.js';
+import { crossVerify, crossVerifySchema } from './mcp/tools/cross-verify.js';
+import { saveToStorage, saveToStorageSchema } from './mcp/tools/save-to-storage.js';
 
 // Tool definitions
 const TOOLS: Tool[] = [
@@ -123,6 +125,54 @@ const TOOLS: Tool[] = [
       },
     },
   },
+  {
+    name: 'cross_verify',
+    description: 'Cross-verify a list of claims against optional source URLs. Returns verification confidence and conflict analysis.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        claims: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of factual claims to verify',
+        },
+        topic: {
+          type: 'string',
+          description: 'Topic context for verification',
+        },
+        sources: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional source URLs to check claims against',
+        },
+      },
+      required: ['claims', 'topic'],
+    },
+  },
+  {
+    name: 'save_to_storage',
+    description: 'Save a previously generated research document to a specific storage provider (markdown or json)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Session ID of the research document to save',
+        },
+        provider: {
+          type: 'string',
+          enum: ['markdown', 'json'],
+          description: 'Storage provider to use',
+          default: 'markdown',
+        },
+        destination: {
+          type: 'string',
+          description: 'Optional custom file path or name',
+        },
+      },
+      required: ['sessionId'],
+    },
+  },
 ];
 
 /**
@@ -189,25 +239,41 @@ async function main(): Promise<void> {
         let result;
 
         switch (name) {
-          case 'start_research':
+          case 'start_research': {
             const startInput = startResearchSchema.parse(args);
             result = await startResearch(startInput);
             break;
+          }
 
-          case 'search_sources':
+          case 'search_sources': {
             const searchInput = searchSourcesSchema.parse(args);
             result = await searchSources(searchInput);
             break;
+          }
 
-          case 'get_research_status':
+          case 'get_research_status': {
             const statusInput = getResearchStatusSchema.parse(args);
             result = await getResearchStatus(statusInput);
             break;
+          }
 
-          case 'list_sessions':
+          case 'list_sessions': {
             const listInput = listSessionsSchema.parse(args || {});
             result = await listSessions(listInput);
             break;
+          }
+
+          case 'cross_verify': {
+            const verifyInput = crossVerifySchema.parse(args);
+            result = await crossVerify(verifyInput);
+            break;
+          }
+
+          case 'save_to_storage': {
+            const saveInput = saveToStorageSchema.parse(args);
+            result = await saveToStorage(saveInput);
+            break;
+          }
 
           default:
             return {

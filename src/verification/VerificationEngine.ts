@@ -10,7 +10,7 @@ import type {
   Conflict,
   Source,
 } from '../core/types.js';
-import { logInfo } from '../utils/logger.js';
+import { logInfo, logWarn, logError } from '../utils/logger.js';
 import { nanoid } from 'nanoid';
 
 export interface VerificationConfig {
@@ -28,6 +28,13 @@ export interface VerificationContext {
   sources: Source[];
   claims: Claim[];
   round: number;
+}
+
+interface ClaimVerificationData {
+  claim: Claim;
+  supportingSources: Source[];
+  contradictingSources: Source[];
+  roundResults: number[]; // confidence per round
 }
 
 export class VerificationEngine {
@@ -69,12 +76,7 @@ export class VerificationEngine {
     let shouldContinue = true;
 
     const allConflicts: Conflict[] = [];
-    const claimVerifications = new Map<string, {
-      claim: Claim;
-      supportingSources: Source[];
-      contradictingSources: Source[];
-      roundResults: number[];
-    }>();
+    const claimVerifications = new Map<string, ClaimVerificationData>();
 
     // Initialize claim tracking
     for (const claim of context.claims) {
@@ -88,7 +90,7 @@ export class VerificationEngine {
 
     // Round 1-4: Multi-source collection and initial verification
     while (currentRound <= 4 && shouldContinue) {
-      const result = await this.executeRound(currentRound, context);
+      const result = await this.executeRound(currentRound, context, claimVerifications);
       this.verificationHistory.push(result);
 
       logInfo(`Round ${currentRound} complete`, {
@@ -151,9 +153,9 @@ export class VerificationEngine {
       currentRound++;
     }
 
-    // Round 9: Expert verification (placeholder for now)
+    // Round 9: LLM-based expert verification (if ANTHROPIC_API_KEY available)
     if (currentRound <= this.config.maxRounds && shouldContinue) {
-      const result = await this.executeExpertVerification(context);
+      const result = await this.executeExpertVerification(context, claimVerifications);
       this.verificationHistory.push(result);
 
       logInfo(`Round 9 (Expert) complete`);
@@ -204,43 +206,78 @@ export class VerificationEngine {
     };
   }
 
-  /**
-   * Execute a single verification round
-   */
+  // ---------------------------------------------------------------------------
+  // Rounds 1-4: Text-based claim-source keyword-overlap matching
+  // ---------------------------------------------------------------------------
+
   private async executeRound(
     round: number,
-    context: VerificationContext
+    context: VerificationContext,
+    claimVerifications: Map<string, ClaimVerificationData>,
   ): Promise<VerificationResult> {
-    // Simulate verification logic (in real implementation, this would call LLM)
-    const result: VerificationResult = {
+    // Select a subset of sources for this round (more sources each round)
+    const sourcesForRound = context.sources.slice(0, Math.min(context.sources.length, round * 3));
+
+    let totalConfidence = 0;
+    let claimsProcessed = 0;
+
+    for (const claim of context.claims) {
+      const data = claimVerifications.get(claim.id);
+      if (!data) continue;
+
+      let matchCount = 0;
+      let weightedScore = 0;
+
+      for (const source of sourcesForRound) {
+        const overlap = this.computeKeywordOverlap(claim.text, source.title);
+        if (overlap > 0.15) {
+          matchCount++;
+          weightedScore += overlap * source.credibilityScore;
+
+          // Track supporting/contradicting (simple heuristic)
+          if (!data.supportingSources.find(s => s.id === source.id)) {
+            data.supportingSources.push(source);
+          }
+        }
+      }
+
+      const sourceRatio = sourcesForRound.length > 0 ? matchCount / sourcesForRound.length : 0;
+      const roundConfidence = sourcesForRound.length > 0
+        ? (sourceRatio * 0.5 + (weightedScore / Math.max(matchCount, 1)) * 0.5)
+        : 0.3;
+
+      data.roundResults.push(Math.min(1, roundConfidence));
+      totalConfidence += roundConfidence;
+      claimsProcessed++;
+    }
+
+    const averageConfidence = claimsProcessed > 0 ? totalConfidence / claimsProcessed : 0.5;
+
+    return {
       round,
       timestamp: new Date(),
       claimsVerified: context.claims.length,
       conflictsFound: 0,
-      averageConfidence: 0.7 + (round * 0.03), // Gradually increasing confidence
-      sources: context.sources.slice(0, round * 2), // More sources each round
+      averageConfidence: Math.min(1, averageConfidence),
+      sources: sourcesForRound,
       conflicts: [],
     };
-
-    return result;
   }
 
-  /**
-   * Round 5: Temporal verification
-   */
+  // ---------------------------------------------------------------------------
+  // Round 5: Temporal verification
+  // ---------------------------------------------------------------------------
+
   private async executeTemporalVerification(
     context: VerificationContext
   ): Promise<VerificationResult> {
     const conflicts: Conflict[] = [];
 
-    // Check for temporal inconsistencies
-    // E.g., "2024 data" vs "2023 data"
     for (let i = 0; i < context.claims.length; i++) {
       for (let j = i + 1; j < context.claims.length; j++) {
         const claim1 = context.claims[i];
         const claim2 = context.claims[j];
 
-        // Detect temporal differences (simplified)
         if (this.hasTemporalConflict(claim1, claim2)) {
           conflicts.push({
             id: nanoid(),
@@ -257,27 +294,29 @@ export class VerificationEngine {
       }
     }
 
+    // Average confidence from prior rounds
+    const avgPrior = this.averageHistoryConfidence();
+
     return {
       round: 5,
       timestamp: new Date(),
       claimsVerified: context.claims.length,
       conflictsFound: conflicts.length,
-      averageConfidence: 0.85,
+      averageConfidence: Math.min(1, avgPrior + 0.02),
       sources: context.sources,
       conflicts,
     };
   }
 
-  /**
-   * Round 6: Statistical cross-verification
-   */
+  // ---------------------------------------------------------------------------
+  // Round 6: Statistical cross-verification
+  // ---------------------------------------------------------------------------
+
   private async executeStatisticalVerification(
     context: VerificationContext
   ): Promise<VerificationResult> {
     const conflicts: Conflict[] = [];
 
-    // Calculate coefficient of variation for numerical claims
-    // CV < 0.5 indicates good agreement
     const numericalClaims = context.claims.filter(c => this.isNumericalClaim(c));
 
     for (const claim of numericalClaims) {
@@ -286,7 +325,6 @@ export class VerificationEngine {
         const cv = this.calculateCV(values);
 
         if (cv > 0.5) {
-          // High variation indicates potential conflict
           conflicts.push({
             id: nanoid(),
             type: 'STATISTICAL_METHOD',
@@ -300,27 +338,28 @@ export class VerificationEngine {
       }
     }
 
+    const avgPrior = this.averageHistoryConfidence();
+
     return {
       round: 6,
       timestamp: new Date(),
       claimsVerified: context.claims.length,
       conflictsFound: conflicts.length,
-      averageConfidence: 0.87,
+      averageConfidence: Math.min(1, avgPrior + 0.02),
       sources: context.sources,
       conflicts,
     };
   }
 
-  /**
-   * Round 7: Scope analysis
-   */
+  // ---------------------------------------------------------------------------
+  // Round 7: Scope analysis
+  // ---------------------------------------------------------------------------
+
   private async executeScopeAnalysis(
     context: VerificationContext
   ): Promise<VerificationResult> {
     const conflicts: Conflict[] = [];
 
-    // Detect scope differences
-    // E.g., "ceremony only" vs "ceremony + honeymoon"
     for (let i = 0; i < context.claims.length; i++) {
       for (let j = i + 1; j < context.claims.length; j++) {
         const claim1 = context.claims[i];
@@ -342,25 +381,27 @@ export class VerificationEngine {
       }
     }
 
+    const avgPrior = this.averageHistoryConfidence();
+
     return {
       round: 7,
       timestamp: new Date(),
       claimsVerified: context.claims.length,
       conflictsFound: conflicts.length,
-      averageConfidence: 0.88,
+      averageConfidence: Math.min(1, avgPrior + 0.01),
       sources: context.sources,
       conflicts,
     };
   }
 
-  /**
-   * Round 8: Conflict resolution
-   */
+  // ---------------------------------------------------------------------------
+  // Round 8: Conflict resolution
+  // ---------------------------------------------------------------------------
+
   private async executeConflictResolution(
     conflicts: Conflict[],
     context: VerificationContext
   ): Promise<VerificationResult> {
-    // Attempt to resolve conflicts based on type
     for (const conflict of conflicts) {
       switch (conflict.type) {
         case 'SCOPE_DIFFERENCE':
@@ -383,8 +424,7 @@ export class VerificationEngine {
           conflict.resolution = 'Standardize units and note measurement basis';
           break;
 
-        case 'TRUE_CONTRADICTION':
-          // Check source credibility difference
+        case 'TRUE_CONTRADICTION': {
           const sources = conflict.sources;
           const credibilityDiff = Math.max(...sources.map(s => s.credibilityScore)) -
                                  Math.min(...sources.map(s => s.credibilityScore));
@@ -397,63 +437,235 @@ export class VerificationEngine {
             conflict.resolution = 'Multiple valid perspectives - present both';
           }
           break;
+        }
       }
     }
+
+    const avgPrior = this.averageHistoryConfidence();
 
     return {
       round: 8,
       timestamp: new Date(),
       claimsVerified: context.claims.length,
       conflictsFound: conflicts.length,
-      averageConfidence: 0.90,
+      averageConfidence: Math.min(1, avgPrior + 0.02),
       sources: context.sources,
       conflicts,
     };
   }
 
-  /**
-   * Round 9: Expert verification
-   */
-  private async executeExpertVerification(
-    context: VerificationContext
-  ): Promise<VerificationResult> {
-    // Placeholder for expert verification
-    // In real implementation, this would check against expert sources
+  // ---------------------------------------------------------------------------
+  // Round 9: Expert / LLM verification
+  // ---------------------------------------------------------------------------
 
-    return {
-      round: 9,
-      timestamp: new Date(),
-      claimsVerified: context.claims.length,
-      conflictsFound: 0,
-      averageConfidence: 0.92,
-      sources: context.sources,
-      conflicts: [],
-    };
+  private async executeExpertVerification(
+    context: VerificationContext,
+    claimVerifications: Map<string, ClaimVerificationData>,
+  ): Promise<VerificationResult> {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!apiKey) {
+      // Algorithmic fallback: boost claims that have multiple supporting sources
+      for (const [, data] of claimVerifications) {
+        const supportRatio = context.sources.length > 0
+          ? data.supportingSources.length / context.sources.length
+          : 0;
+        data.roundResults.push(Math.min(1, supportRatio * 1.2 + 0.3));
+      }
+
+      const avgPrior = this.averageHistoryConfidence();
+
+      return {
+        round: 9,
+        timestamp: new Date(),
+        claimsVerified: context.claims.length,
+        conflictsFound: 0,
+        averageConfidence: Math.min(1, avgPrior + 0.01),
+        sources: context.sources,
+        conflicts: [],
+      };
+    }
+
+    // LLM-based verification
+    try {
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+      const client = new Anthropic({ apiKey });
+
+      // Build a concise prompt
+      const claimTexts = context.claims.slice(0, 15).map((c, i) => `${i + 1}. ${c.text}`).join('\n');
+      const sourceTexts = context.sources.slice(0, 10).map(
+        (s, i) => `${i + 1}. [${s.title}] (${s.url}) credibility=${s.credibilityScore.toFixed(2)}`
+      ).join('\n');
+
+      const message = await client.messages.create({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: `You are a research verification expert. Evaluate the following claims about "${context.topic}" based on the provided sources.\n\nClaims:\n${claimTexts}\n\nSources:\n${sourceTexts}\n\nFor each claim, respond with a JSON array of objects: {"claimIndex": number, "confidence": number (0-1), "assessment": "verified"|"disputed"|"unverifiable"}\nRespond ONLY with the JSON array.`,
+        }],
+      });
+
+      const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+
+      // Parse the LLM response
+      try {
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const assessments = JSON.parse(jsonMatch[0]) as Array<{
+            claimIndex: number;
+            confidence: number;
+            assessment: string;
+          }>;
+
+          for (const assessment of assessments) {
+            const idx = assessment.claimIndex - 1;
+            if (idx >= 0 && idx < context.claims.length) {
+              const claim = context.claims[idx];
+              const data = claimVerifications.get(claim.id);
+              if (data) {
+                data.roundResults.push(Math.min(1, Math.max(0, assessment.confidence)));
+              }
+            }
+          }
+        }
+      } catch {
+        logWarn('Failed to parse LLM verification response');
+      }
+
+      const avgPrior = this.averageHistoryConfidence();
+
+      return {
+        round: 9,
+        timestamp: new Date(),
+        claimsVerified: context.claims.length,
+        conflictsFound: 0,
+        averageConfidence: Math.min(1, avgPrior + 0.03),
+        sources: context.sources,
+        conflicts: [],
+      };
+    } catch (error) {
+      logError('LLM verification failed, using algorithmic fallback', error);
+
+      for (const [, data] of claimVerifications) {
+        const supportRatio = context.sources.length > 0
+          ? data.supportingSources.length / context.sources.length
+          : 0;
+        data.roundResults.push(Math.min(1, supportRatio * 1.2 + 0.3));
+      }
+
+      const avgPrior = this.averageHistoryConfidence();
+
+      return {
+        round: 9,
+        timestamp: new Date(),
+        claimsVerified: context.claims.length,
+        conflictsFound: 0,
+        averageConfidence: Math.min(1, avgPrior + 0.01),
+        sources: context.sources,
+        conflicts: [],
+      };
+    }
   }
 
-  /**
-   * Round 10: Final consensus building
-   */
+  // ---------------------------------------------------------------------------
+  // Round 10: Final consensus building
+  // ---------------------------------------------------------------------------
+
   private async executeFinalConsensus(
     context: VerificationContext,
-    _claimVerifications: Map<string, any>
+    claimVerifications: Map<string, ClaimVerificationData>,
   ): Promise<VerificationResult> {
-    // Build final consensus based on all previous rounds
+    // LLM-based final synthesis (if API key available)
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (apiKey) {
+      try {
+        const Anthropic = (await import('@anthropic-ai/sdk')).default;
+        const client = new Anthropic({ apiKey });
+
+        // Prepare summary data
+        const summaryItems: string[] = [];
+        for (const [, data] of claimVerifications) {
+          const avgConf = data.roundResults.length > 0
+            ? data.roundResults.reduce((a, b) => a + b, 0) / data.roundResults.length
+            : 0.5;
+          summaryItems.push(`- "${data.claim.text}" avg_confidence=${avgConf.toFixed(2)} supporting=${data.supportingSources.length}`);
+        }
+
+        const message = await client.messages.create({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 512,
+          messages: [{
+            role: 'user',
+            content: `As a research verification expert, provide a final overall confidence score (0-1) for this set of claims about "${context.topic}". Consider the individual claim statistics below:\n\n${summaryItems.slice(0, 15).join('\n')}\n\nRespond with ONLY a single JSON object: {"overallConfidence": number, "notes": "brief summary"}`,
+          }],
+        });
+
+        const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+
+        let llmConfidence: number | null = null;
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            llmConfidence = parsed.overallConfidence;
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        if (llmConfidence !== null && llmConfidence >= 0 && llmConfidence <= 1) {
+          return {
+            round: 10,
+            timestamp: new Date(),
+            claimsVerified: context.claims.length,
+            conflictsFound: 0,
+            averageConfidence: llmConfidence,
+            sources: context.sources,
+            conflicts: [],
+          };
+        }
+      } catch (error) {
+        logWarn('LLM consensus failed, using algorithmic fallback', { error: (error as Error).message });
+      }
+    }
+
+    // Algorithmic consensus: weighted average of all round results across claims
+    let totalConf = 0;
+    let count = 0;
+    for (const [, data] of claimVerifications) {
+      if (data.roundResults.length > 0) {
+        // Weight later rounds more heavily
+        let weightedSum = 0;
+        let weightTotal = 0;
+        for (let i = 0; i < data.roundResults.length; i++) {
+          const weight = 1 + i * 0.5; // later rounds get higher weight
+          weightedSum += data.roundResults[i] * weight;
+          weightTotal += weight;
+        }
+        totalConf += weightedSum / weightTotal;
+        count++;
+      }
+    }
+
+    const consensusConfidence = count > 0 ? totalConf / count : 0.5;
 
     return {
       round: 10,
       timestamp: new Date(),
       claimsVerified: context.claims.length,
       conflictsFound: 0,
-      averageConfidence: 0.93,
+      averageConfidence: Math.min(1, consensusConfidence),
       sources: context.sources,
       conflicts: [],
     };
   }
 
-  /**
-   * Check if early exit conditions are met
-   */
+  // ---------------------------------------------------------------------------
+  // Early exit
+  // ---------------------------------------------------------------------------
+
   private checkEarlyExitConditions(): { shouldExit: boolean; reason?: string } {
     if (this.verificationHistory.length < this.config.minRounds) {
       return { shouldExit: false };
@@ -462,7 +674,6 @@ export class VerificationEngine {
     const latestResult = this.verificationHistory[this.verificationHistory.length - 1];
     const sourceCount = latestResult.sources.length;
 
-    // Check conditions
     if (latestResult.averageConfidence >= this.config.minConfidence &&
         sourceCount >= this.config.minSources) {
       return {
@@ -474,31 +685,59 @@ export class VerificationEngine {
     return { shouldExit: false };
   }
 
-  /**
-   * Build verified claims from verification results
-   */
+  // ---------------------------------------------------------------------------
+  // Build verified claims
+  // ---------------------------------------------------------------------------
+
   private buildVerifiedClaims(
-    claimVerifications: Map<string, any>,
+    claimVerifications: Map<string, ClaimVerificationData>,
     _sources: Source[]
   ): VerifiedClaim[] {
     const verifiedClaims: VerifiedClaim[] = [];
 
-    for (const [, verification] of claimVerifications.entries()) {
+    for (const [, data] of claimVerifications.entries()) {
+      // Calculate final confidence as weighted average (later rounds weigh more)
+      let finalConfidence: number;
+      if (data.roundResults.length > 0) {
+        let weightedSum = 0;
+        let weightTotal = 0;
+        for (let i = 0; i < data.roundResults.length; i++) {
+          const weight = 1 + i * 0.5;
+          weightedSum += data.roundResults[i] * weight;
+          weightTotal += weight;
+        }
+        finalConfidence = weightedSum / weightTotal;
+      } else {
+        finalConfidence = 0.5;
+      }
+
+      // Determine status
+      let verificationStatus: 'verified' | 'disputed' | 'false' | 'pending';
+      if (finalConfidence >= 0.8) {
+        verificationStatus = 'verified';
+      } else if (finalConfidence >= 0.5) {
+        verificationStatus = 'disputed';
+      } else {
+        verificationStatus = 'false';
+      }
+
       verifiedClaims.push({
-        ...verification.claim,
+        ...data.claim,
+        verificationStatus,
         verificationRounds: this.verificationHistory.length,
-        supportingSources: verification.supportingSources,
-        contradictingSources: verification.contradictingSources,
-        finalConfidence: 0.90, // Calculate based on rounds
+        supportingSources: data.supportingSources,
+        contradictingSources: data.contradictingSources,
+        finalConfidence: Math.min(1, finalConfidence),
       });
     }
 
     return verifiedClaims;
   }
 
-  /**
-   * Calculate final confidence score
-   */
+  // ---------------------------------------------------------------------------
+  // Final confidence
+  // ---------------------------------------------------------------------------
+
   private calculateFinalConfidence(verifiedClaims: VerifiedClaim[]): number {
     if (verifiedClaims.length === 0) return 0;
 
@@ -506,10 +745,44 @@ export class VerificationEngine {
     return avgConfidence;
   }
 
-  // Helper methods
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Compute keyword overlap between two text strings (Jaccard-like).
+   * Returns 0..1.
+   */
+  private computeKeywordOverlap(textA: string, textB: string): number {
+    const wordsA = this.tokenize(textA);
+    const wordsB = this.tokenize(textB);
+    if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+    let intersection = 0;
+    for (const w of wordsA) {
+      if (wordsB.has(w)) intersection++;
+    }
+
+    const union = new Set([...wordsA, ...wordsB]).size;
+    return union > 0 ? intersection / union : 0;
+  }
+
+  private tokenize(text: string): Set<string> {
+    return new Set(
+      text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2) // skip very short tokens
+    );
+  }
+
+  private averageHistoryConfidence(): number {
+    if (this.verificationHistory.length === 0) return 0.5;
+    return this.verificationHistory.reduce((s, r) => s + r.averageConfidence, 0) / this.verificationHistory.length;
+  }
 
   private hasTemporalConflict(claim1: Claim, claim2: Claim): boolean {
-    // Simplified: check if claims mention different years
     const years1 = claim1.text.match(/20\d{2}/g);
     const years2 = claim2.text.match(/20\d{2}/g);
 
@@ -521,7 +794,6 @@ export class VerificationEngine {
   }
 
   private hasScopeConflict(claim1: Claim, claim2: Claim): boolean {
-    // Simplified: check for scope keywords
     const scopeKeywords = ['only', 'including', 'excluding', 'total', 'average'];
 
     const hasScope1 = scopeKeywords.some(kw => claim1.text.toLowerCase().includes(kw));
