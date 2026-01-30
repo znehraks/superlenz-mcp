@@ -25,12 +25,12 @@ npm run build
 cp .env.example .env
 ```
 
-2. **Edit `.env` with your API keys**:
+2. **Edit `.env` with your API keys** (all optional):
 ```bash
-# Required
+# Optional – enables LLM-based verification (rounds 9-10)
 ANTHROPIC_API_KEY=your_anthropic_key_here
 
-# Optional (for full functionality later)
+# Optional – enables additional search providers
 BRAVE_SEARCH_API_KEY=your_brave_key_here
 EXA_API_KEY=your_exa_key_here
 GITHUB_TOKEN=your_github_token_here
@@ -45,10 +45,7 @@ Add to `~/.claude/settings.json`:
   "mcpServers": {
     "research-automation": {
       "command": "node",
-      "args": ["/Users/youjungmin/research/research-automation-mcp/dist/index.js"],
-      "env": {
-        "ANTHROPIC_API_KEY": "your_anthropic_key_here"
-      }
+      "args": ["/Users/youjungmin/research/research-automation-mcp/dist/index.js"]
     }
   }
 }

@@ -26,18 +26,18 @@ A Model Context Protocol (MCP) server that automates research tasks with a focus
 
 ## Environment Variables
 
-Set these via the `env` field in your MCP client configuration.
+SuperLenz reads these from the system environment. If a key is available, the corresponding feature is automatically enabled. No key is strictly required — arXiv search is always available.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `BRAVE_SEARCH_API_KEY` | At least one search key | Brave Search API key |
-| `EXA_API_KEY` | At least one search key | Exa Search API key |
+| `BRAVE_SEARCH_API_KEY` | No | Brave Search API key |
+| `EXA_API_KEY` | No | Exa Search API key |
 | `SEMANTIC_SCHOLAR_API_KEY` | No | Semantic Scholar API key (improves rate limits) |
 | `GITHUB_TOKEN` | No | GitHub token for repository search |
 | `ANTHROPIC_API_KEY` | No | Enables LLM-based verification (rounds 9-10) |
 | `OUTPUT_PATH` | No | Output directory for saved documents (default: `./output`) |
 
-arXiv search is always available without an API key.
+> **Tip:** If your MCP client supports an `"env"` field, you can pass keys there instead of setting them system-wide.
 
 ---
 
@@ -56,11 +56,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
   "mcpServers": {
     "superlenz": {
       "command": "npx",
-      "args": ["-y", "superlenz"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "your_key",
-        "ANTHROPIC_API_KEY": "your_key"
-      }
+      "args": ["-y", "superlenz"]
     }
   }
 }
@@ -71,10 +67,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 **Option A — CLI command:**
 
 ```bash
-claude mcp add superlenz \
-  -e BRAVE_SEARCH_API_KEY=your_key \
-  -e ANTHROPIC_API_KEY=your_key \
-  -- npx -y superlenz
+claude mcp add superlenz -- npx -y superlenz
 ```
 
 | Flag | Description |
@@ -101,11 +94,7 @@ Edit `~/.claude/settings.json` (or `.claude/settings.json` at the project root):
   "mcpServers": {
     "superlenz": {
       "command": "npx",
-      "args": ["-y", "superlenz"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "your_key",
-        "ANTHROPIC_API_KEY": "your_key"
-      }
+      "args": ["-y", "superlenz"]
     }
   }
 }
@@ -122,11 +111,7 @@ Open **Settings > MCP Servers** and add, or edit `.cursor/mcp.json` (project) / 
   "mcpServers": {
     "superlenz": {
       "command": "npx",
-      "args": ["-y", "superlenz"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "your_key",
-        "ANTHROPIC_API_KEY": "your_key"
-      }
+      "args": ["-y", "superlenz"]
     }
   }
 }
@@ -148,11 +133,7 @@ cursor agent mcp disable <id>        # disable a server
 code --add-mcp '{
   "name": "superlenz",
   "command": "npx",
-  "args": ["-y", "superlenz"],
-  "env": {
-    "BRAVE_SEARCH_API_KEY": "your_key",
-    "ANTHROPIC_API_KEY": "your_key"
-  }
+  "args": ["-y", "superlenz"]
 }'
 ```
 
@@ -165,30 +146,7 @@ Edit `.vscode/mcp.json` in your workspace. Note: VS Code uses the `"servers"` ke
   "servers": {
     "superlenz": {
       "command": "npx",
-      "args": ["-y", "superlenz"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "your_key",
-        "ANTHROPIC_API_KEY": "your_key"
-      }
-    }
-  }
-}
-```
-
-You can also use an `"inputs"` array to prompt for secrets at runtime instead of hard-coding them:
-
-```json
-{
-  "inputs": [
-    { "id": "brave-key", "type": "promptString", "description": "Brave Search API Key", "password": true }
-  ],
-  "servers": {
-    "superlenz": {
-      "command": "npx",
-      "args": ["-y", "superlenz"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "${input:brave-key}"
-      }
+      "args": ["-y", "superlenz"]
     }
   }
 }
@@ -201,10 +159,7 @@ Or add to VS Code `settings.json` under `"mcp.servers"`.
 **Option A — CLI command:**
 
 ```bash
-gemini mcp add \
-  -e BRAVE_SEARCH_API_KEY=your_key \
-  -e ANTHROPIC_API_KEY=your_key \
-  superlenz npx -y superlenz
+gemini mcp add superlenz npx -y superlenz
 ```
 
 Management commands:
@@ -223,11 +178,7 @@ Edit `~/.gemini/settings.json`:
   "mcpServers": {
     "superlenz": {
       "command": "npx",
-      "args": ["-y", "superlenz"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "your_key",
-        "ANTHROPIC_API_KEY": "your_key"
-      }
+      "args": ["-y", "superlenz"]
     }
   }
 }
